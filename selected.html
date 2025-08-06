@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <title>Selected Data</title>
+  <!-- DataTables CSS -->
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
   <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.dataTables.min.css">
 </head>
 <body>
-  <!-- Same Nav -->
   <nav style="margin-bottom:1em;">
     <a href="index.html">Home</a> |
     <a href="selected.html">Selected Data</a>
@@ -22,6 +22,7 @@
 
   <table id="filings" class="display" style="width:100%"></table>
 
+  <!-- jQuery, DataTables, PapaParse, Buttons -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
@@ -34,43 +35,50 @@
       return str.replace(/[-\/\\^$*+?.()|[\]{}]/g,'\\$&');
     }
 
-    Papa.parse('The stuff we actually need.csv', {
+    // Use your new filename here:
+    Papa.parse('selected_data.csv', {
       download: true,
       header: true,
       skipEmptyLines: true,
       complete: function(results) {
-        var data = results.data,
+        var data   = results.data,
             fields = results.meta.fields,
             table,
-            unique = {};
+            seen   = {};
 
-        data.forEach(r=>{
+        // Populate filter dropdown
+        data.forEach(function(r){
           var v = r['Filings'];
-          if(v && !unique[v]) {
-            unique[v]=1;
+          if (v && !seen[v]) {
+            seen[v] = true;
             $('#filings-filter').append($('<option>').val(v).text(v));
           }
         });
 
+        // Build the DataTable
         table = $('#filings').DataTable({
           data: data,
-          columns: fields.map(n=>({ title:n, data:n, defaultContent:'' })),
-          pageLength:25,
-          dom:'Bfrtip',
-          buttons:[
-            { extend:'csvHtml5', text:'Download CSV', title:'selected_export' },
+          columns: fields.map(function(n){ 
+            return { title: n, data: n, defaultContent: "" }; 
+          }),
+          dom: 'Bfrtip',
+          buttons: [
+            { extend:'csvHtml5',   text:'Download CSV',   title:'selected_export' },
             { extend:'excelHtml5', text:'Download Excel', title:'selected_export' }
-          ]
+          ],
+          pageLength: 25
         });
 
-        $('#filings-filter').on('change',function(){
-          var sel = $(this).val()||[],
-              idx = fields.indexOf('Filings');
-          if(!sel.length || (sel.length===1 && sel[0]==='')) {
-            table.column(idx).search('',true,false).draw();
+        // Multi-select filter logic
+        $('#filings-filter').on('change', function() {
+          var vals = $(this).val() || [],
+              idx  = fields.indexOf('Filings'),
+              regex;
+          if (!vals.length || (vals.length===1 && vals[0]==='')) {
+            table.column(idx).search('', true, false).draw();
           } else {
-            var rx = '^(' + sel.map(escapeRegex).join('|') + ')$';
-            table.column(idx).search(rx,true,false).draw();
+            regex = '^(' + vals.map(escapeRegex).join('|') + ')$';
+            table.column(idx).search(regex, true, false).draw();
           }
         });
       }
