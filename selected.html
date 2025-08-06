@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Selected Data</title>
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+  <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.dataTables.min.css">
+</head>
+<body>
+  <!-- Same Nav -->
+  <nav style="margin-bottom:1em;">
+    <a href="index.html">Home</a> |
+    <a href="selected.html">Selected Data</a>
+  </nav>
+
+  <h1>The Stuff We Actually Need</h1>
+
+  <label for="filings-filter">Filter by Filings:</label>
+  <select id="filings-filter" multiple size="6" style="min-width:200px;">
+    <option value="">All</option>
+  </select>
+
+  <table id="filings" class="display" style="width:100%"></table>
+
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
+  <script src="https://cdn.datatables.net/buttons/2.3.6/js/dataTables.buttons.min.js"></script>
+  <script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.html5.min.js"></script>
+
+  <script>
+    function escapeRegex(str) {
+      return str.replace(/[-\/\\^$*+?.()|[\]{}]/g,'\\$&');
+    }
+
+    Papa.parse('The stuff we actually need.csv', {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: function(results) {
+        var data = results.data,
+            fields = results.meta.fields,
+            table,
+            unique = {};
+
+        data.forEach(r=>{
+          var v = r['Filings'];
+          if(v && !unique[v]) {
+            unique[v]=1;
+            $('#filings-filter').append($('<option>').val(v).text(v));
+          }
+        });
+
+        table = $('#filings').DataTable({
+          data: data,
+          columns: fields.map(n=>({ title:n, data:n, defaultContent:'' })),
+          pageLength:25,
+          dom:'Bfrtip',
+          buttons:[
+            { extend:'csvHtml5', text:'Download CSV', title:'selected_export' },
+            { extend:'excelHtml5', text:'Download Excel', title:'selected_export' }
+          ]
+        });
+
+        $('#filings-filter').on('change',function(){
+          var sel = $(this).val()||[],
+              idx = fields.indexOf('Filings');
+          if(!sel.length || (sel.length===1 && sel[0]==='')) {
+            table.column(idx).search('',true,false).draw();
+          } else {
+            var rx = '^(' + sel.map(escapeRegex).join('|') + ')$';
+            table.column(idx).search(rx,true,false).draw();
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>
