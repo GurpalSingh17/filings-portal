@@ -2,30 +2,23 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Filing Links</title>
-  <!-- DataTables CSS -->
+  <title>Filings Portal – All Data</title>
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
-  <!-- Buttons CSS -->
   <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.dataTables.min.css">
   <style>
-    body { padding-bottom: 2em; }
-    footer { 
-      position: fixed; 
-      bottom: 0; 
-      width: 100%; 
-      text-align: center; 
-      font-size: 0.9em; 
-      color: #666;
-      border-top: 1px solid #ccc;
-      padding: 0.5em 0;
-      background: #fafafa;
-    }
+    nav { margin-bottom: 1em; }
+    nav a { margin-right: 1em; text-decoration: none; color: blue; }
   </style>
 </head>
 <body>
-  <h1>Filing Links</h1>
+  <!-- site-wide header/nav -->
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="selected.html">Selected Data</a>
+  </nav>
 
-  <!-- Multi-select filter dropdown for Filings -->
+  <h1>All Filings</h1>
+
   <label for="filings-filter">Filter by Filings:</label>
   <select id="filings-filter" multiple size="6" style="min-width:200px;">
     <option value="">All</option>
@@ -33,12 +26,6 @@
 
   <table id="filings" class="display" style="width:100%"></table>
 
-  <!-- version placeholder -->
-  <footer>
-    Version: <span id="site-version">loading…</span>
-  </footer>
-
-  <!-- Dependencies -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
@@ -47,16 +34,6 @@
   <script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.html5.min.js"></script>
 
   <script>
-    // 1) load & display version.txt
-    fetch('version.txt')
-      .then(r => r.ok ? r.text() : Promise.reject('version.txt not found'))
-      .then(ver => {
-        document.getElementById('site-version').textContent = ver.trim();
-      })
-      .catch(_=>{
-        document.getElementById('site-version').textContent = 'n/a';
-      });
-
     function escapeRegex(str) {
       return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
     }
@@ -68,24 +45,24 @@
       complete: function(results) {
         var data   = results.data;
         var fields = results.meta.fields;
-        var unique = {};
+        var seen   = {};
 
-        // populate dropdown
-        data.forEach(function(r){
-          var v = r['Filings'];
-          if (v && !unique[v]) {
-            unique[v] = true;
+        // build filter dropdown
+        data.forEach(function(row) {
+          var f = row['Filings'];
+          if (f && !seen[f]) {
+            seen[f] = true;
             $('#filings-filter').append(
-              $('<option>').val(v).text(v)
+              $('<option>').val(f).text(f)
             );
           }
         });
 
-        // init DataTable
+        // initialize DataTable
         var table = $('#filings').DataTable({
           data: data,
-          columns: fields.map(function(n){
-            return { title: n, data: n, defaultContent: '' };
+          columns: fields.map(function(name) {
+            return { title: name, data: name, defaultContent: "" };
           }),
           pageLength: 25,
           dom: 'Bfrtip',
@@ -93,23 +70,21 @@
             {
               extend: 'csvHtml5',
               text: 'Download CSV',
-              title: 'filings_export',
               exportOptions: { modifier: { search: 'applied' } }
             },
             {
               extend: 'excelHtml5',
               text: 'Download Excel',
-              title: 'filings_export',
               exportOptions: { modifier: { search: 'applied' } }
             }
           ]
         });
 
-        // filter logic
+        // multi‐select filter logic
         $('#filings-filter').on('change', function() {
-          var vals = $(this).val()||[];
+          var vals = $(this).val() || [];
           var idx  = fields.indexOf('Filings');
-          if (!vals.length || (vals.length===1 && vals[0]==='')) {
+          if (!vals.length || (vals.length === 1 && vals[0] === "")) {
             table.column(idx).search('', true, false).draw();
           } else {
             var regex = '^(' + vals.map(escapeRegex).join('|') + ')$';
