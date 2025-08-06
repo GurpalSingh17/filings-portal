@@ -1,14 +1,21 @@
-<!DOCTYPE html>
+# Writing a complete `index.html` with filter dropdown for "Type"
+html_content = """<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <title>Filing Links</title>
   <!-- DataTables CSS -->
-  <link rel="stylesheet"
-        href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
 </head>
 <body>
   <h1>Filing Links</h1>
+
+  <!-- Filter dropdown for Type -->
+  <label for="type-filter">Filter by Type:</label>
+  <select id="type-filter">
+    <option value="">All</option>
+  </select>
+
   <table id="filings" class="display" style="width:100%"></table>
 
   <!-- jQuery, DataTables, PapaParse -->
@@ -17,21 +24,53 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 
   <script>
-    // Parse CSV, skip empty lines, then initialize DataTable
     Papa.parse('NEW_filing_links.csv', {
       download: true,
       header: true,
       skipEmptyLines: true,
       complete: function(results) {
-        $('#filings').DataTable({
-          data: results.data,
+        var allData  = results.data;
+        var allTypes = {};
+
+        // Populate the Type filter dropdown
+        allData.forEach(function(row) {
+          var t = row['Type'];
+          if (t && !allTypes[t]) {
+            allTypes[t] = true;
+            $('#type-filter').append(
+              $('<option>').val(t).text(t)
+            );
+          }
+        });
+
+        // Initialize DataTable
+        var table = $('#filings').DataTable({
+          data: allData,
           columns: results.meta.fields.map(function(name) {
             return { title: name, data: name, defaultContent: "" };
           }),
           pageLength: 25
+        });
+
+        // Filter on Type change
+        $('#type-filter').on('change', function() {
+          var val = $(this).val();
+          var colIdx = results.meta.fields.indexOf('Type');
+          table
+            .column(colIdx)
+            .search(val ? '^' + val + '$' : '', true, false)
+            .draw();
         });
       }
     });
   </script>
 </body>
 </html>
+"""
+
+# Write the file to a downloadable path
+file_path = '/mnt/data/index.html'
+with open(file_path, 'w') as f:
+    f.write(html_content)
+
+file_path
