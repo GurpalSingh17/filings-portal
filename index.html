@@ -1,5 +1,4 @@
-# Writing a complete `index.html` with filter dropdown for "Type"
-html_content = """<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -10,9 +9,9 @@ html_content = """<!DOCTYPE html>
 <body>
   <h1>Filing Links</h1>
 
-  <!-- Filter dropdown for Type -->
-  <label for="type-filter">Filter by Type:</label>
-  <select id="type-filter">
+  <!-- Filter dropdown for Filings -->
+  <label for="filings-filter">Filter by Filings:</label>
+  <select id="filings-filter">
     <option value="">All</option>
   </select>
 
@@ -29,33 +28,33 @@ html_content = """<!DOCTYPE html>
       header: true,
       skipEmptyLines: true,
       complete: function(results) {
-        var allData  = results.data;
-        var allTypes = {};
+        var data = results.data;
+        var uniqueFilings = {};
 
-        // Populate the Type filter dropdown
-        allData.forEach(function(row) {
-          var t = row['Type'];
-          if (t && !allTypes[t]) {
-            allTypes[t] = true;
-            $('#type-filter').append(
-              $('<option>').val(t).text(t)
+        // Populate the Filings filter dropdown
+        data.forEach(function(row) {
+          var f = row['Filings'];
+          if (f && !uniqueFilings[f]) {
+            uniqueFilings[f] = true;
+            $('#filings-filter').append(
+              $('<option>').val(f).text(f)
             );
           }
         });
 
         // Initialize DataTable
         var table = $('#filings').DataTable({
-          data: allData,
+          data: data,
           columns: results.meta.fields.map(function(name) {
             return { title: name, data: name, defaultContent: "" };
           }),
           pageLength: 25
         });
 
-        // Filter on Type change
-        $('#type-filter').on('change', function() {
+        // Filter on Filings change
+        $('#filings-filter').on('change', function() {
           var val = $(this).val();
-          var colIdx = results.meta.fields.indexOf('Type');
+          var colIdx = results.meta.fields.indexOf('Filings');
           table
             .column(colIdx)
             .search(val ? '^' + val + '$' : '', true, false)
@@ -66,11 +65,3 @@ html_content = """<!DOCTYPE html>
   </script>
 </body>
 </html>
-"""
-
-# Write the file to a downloadable path
-file_path = '/mnt/data/index.html'
-with open(file_path, 'w') as f:
-    f.write(html_content)
-
-file_path
