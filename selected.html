@@ -39,7 +39,7 @@
       return s.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
     }
 
-    Papa.parse('filtered_filings.csv', {
+    Papa.parse('filtered_with_source.csv', {
       download: true,
       header: true,
       skipEmptyLines: true,
