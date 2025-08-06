@@ -2,19 +2,14 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Filings Portal</title>
+  <title>Filing Links</title>
+  <!-- DataTables CSS -->
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+  <!-- Buttons CSS -->
   <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.dataTables.min.css">
 </head>
 <body>
-  <!-- Nav -->
-  <nav style="margin-bottom:1em;">
-    <a href="index.html">Home</a> |
-    <a href="selected.html">Selected Data</a>
-  </nav>
-
-  <h1>All Filings</h1>
-  <!-- Dataset selector removed (fixed to full) -->
+  <h1>Filing Links</h1>
 
   <!-- Multi-select filter dropdown for Filings -->
   <label for="filings-filter">Filter by Filings:</label>
@@ -24,16 +19,18 @@
 
   <table id="filings" class="display" style="width:100%"></table>
 
+  <!-- jQuery, DataTables, PapaParse -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <!-- Buttons & dependencies -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
   <script src="https://cdn.datatables.net/buttons/2.3.6/js/dataTables.buttons.min.js"></script>
   <script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.html5.min.js"></script>
 
   <script>
     function escapeRegex(str) {
-      return str.replace(/[-\/\\^$*+?.()|[\]{}]/g,'\\$&');
+      return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
     }
 
     Papa.parse('NEW_filing_links.csv', {
@@ -41,41 +38,58 @@
       header: true,
       skipEmptyLines: true,
       complete: function(results) {
-        var data = results.data,
-            fields = results.meta.fields,
-            table,
-            unique = {};
+        var data = results.data;
+        var fields = results.meta.fields;
+        var uniqueFilings = {};
 
-        // build filter dropdown
-        data.forEach(r=>{
-          var v = r['Filings'];
-          if(v && !unique[v]) {
-            unique[v]=1;
-            $('#filings-filter').append($('<option>').val(v).text(v));
+        // Populate the Filings filter dropdown
+        data.forEach(function(row) {
+          var f = row['Filings'];
+          if (f && !uniqueFilings[f]) {
+            uniqueFilings[f] = true;
+            $('#filings-filter').append(
+              $('<option>').val(f).text(f)
+            );
           }
         });
 
-        // init DataTable
-        table = $('#filings').DataTable({
+        // Initialize DataTable with filtered-download buttons
+        var table = $('#filings').DataTable({
           data: data,
-          columns: fields.map(n=>({ title:n, data:n, defaultContent:'' })),
-          pageLength:25,
-          dom:'Bfrtip',
-          buttons:[
-            { extend:'csvHtml5', text:'Download CSV', title:'filings_export' },
-            { extend:'excelHtml5', text:'Download Excel', title:'filings_export' }
+          columns: fields.map(function(name) {
+            return { title: name, data: name, defaultContent: "" };
+          }),
+          pageLength: 25,
+          dom: 'Bfrtip',
+          buttons: [
+            {
+              extend: 'csvHtml5',
+              text: 'Download CSV',
+              title: 'filings_export',
+              exportOptions: {
+                modifier: { search: 'applied' }
+              }
+            },
+            {
+              extend: 'excelHtml5',
+              text: 'Download Excel',
+              title: 'filings_export',
+              exportOptions: {
+                modifier: { search: 'applied' }
+              }
+            }
           ]
         });
 
-        // apply multi-filter
-        $('#filings-filter').on('change',function(){
-          var sel = $(this).val()||[],
-              idx = fields.indexOf('Filings');
-          if(!sel.length || (sel.length===1 && sel[0]==='')) {
-            table.column(idx).search('',true,false).draw();
+        // Filter on Filings change (multi-select)
+        $('#filings-filter').on('change', function() {
+          var vals = $(this).val() || [];
+          var colIdx = fields.indexOf('Filings');
+          if (vals.length === 0 || (vals.length === 1 && vals[0] === "")) {
+            table.column(colIdx).search('', true, false).draw();
           } else {
-            var rx = '^(' + sel.map(escapeRegex).join('|') + ')$';
-            table.column(idx).search(rx,true,false).draw();
+            var regex = '^(' + vals.map(escapeRegex).join('|') + ')$';
+            table.column(colIdx).search(regex, true, false).draw();
           }
         });
       }
