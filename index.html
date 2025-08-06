@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Filings Portal – Selected Data</title>
+  <title>Filings Portal – All Data</title>
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
   <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.dataTables.min.css">
   <style>
@@ -11,15 +11,14 @@
   </style>
 </head>
 <body>
-  <!-- site-wide nav -->
+  <!-- site‐wide navigation -->
   <nav>
-    <a href="index.html">Home</a>
+    <a href="index.html">Home</a> |
     <a href="selected.html">Selected Data</a>
   </nav>
 
-  <h1>Selected Filings Data</h1>
+  <h1>All Filings</h1>
 
-  <!-- filter dropdown -->
   <label for="filings-filter">Filter by Filings:</label>
   <select id="filings-filter" multiple size="6" style="min-width:200px;">
     <option value="">All</option>
@@ -27,7 +26,7 @@
 
   <table id="filings" class="display" style="width:100%"></table>
 
-  <!-- dependencies -->
+  <!-- Dependencies -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
@@ -40,8 +39,7 @@
       return s.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
     }
 
-    // load the filtered CSV you produced
-    Papa.parse('filtered_filings.csv', {
+    Papa.parse('NEW_filing_links.csv', {
       download: true,
       header: true,
       skipEmptyLines: true,
@@ -50,7 +48,7 @@
             fields = results.meta.fields,
             seen   = {};
 
-        // populate dropdown
+        // Populate multi‐select dropdown
         data.forEach(function(row) {
           var v = row['Filings'];
           if (v && !seen[v]) {
@@ -61,7 +59,7 @@
           }
         });
 
-        // init DataTable
+        // Initialize DataTable with filtered‐export buttons
         var table = $('#filings').DataTable({
           data: data,
           columns: fields.map(function(name) {
@@ -83,16 +81,16 @@
           ]
         });
 
-        // multi-filter logic
+        // Apply filter on change
         $('#filings-filter').on('change', function() {
           var vals = $(this).val() || [],
-              col  = fields.indexOf('Filings'),
+              idx  = fields.indexOf('Filings'),
               rx;
-          if (!vals.length || (vals.length===1 && vals[0]==='')) {
-            table.column(col).search('', true, false).draw();
+          if (!vals.length || (vals.length === 1 && vals[0] === "")) {
+            table.column(idx).search('', true, false).draw();
           } else {
             rx = '^(' + vals.map(escapeRegex).join('|') + ')$';
-            table.column(col).search(rx, true, false).draw();
+            table.column(idx).search(rx, true, false).draw();
           }
         });
       }
