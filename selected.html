@@ -49,44 +49,37 @@
 
   <script>
   $(function() {
-    // 1) Parse the CSV
-    Papa.parse('selected_data.csv', {
+    Papa.parse('./selected_data.csv', {     // ← explicit relative path
       download: true,
       header: true,
       complete: function(results) {
         const data = results.data;
         const fields = results.meta.fields;
 
-        // 2) Build the multi-select filter from unique Type values
+        // build filter
         const types = Array.from(new Set(data.map(r => r.Type))).sort();
         const $filter = $('#typeFilter');
-        types.forEach(t => {
-          $filter.append(`<option value="${t}">${t}</option>`);
-        });
+        types.forEach(t => $filter.append(`<option>${t}</option>`));
 
-        // 3) Set up DataTables columns, using a function for data: to avoid
-        //    the “unknown parameter” DataTables warning on header names
+        // columns
         const columns = fields.map(f => ({
           title: f,
           data: row => row[f],
           render: (d, _, __) => {
-            if (f === 'Link' || f === 'Source File') {
+            if ((f==='Link' || f==='Source File') && d) {
               return `<a href="${d}" target="_blank">${d}</a>`;
             }
-            if (f === 'Parsed CSV') {
-              // open our CSV viewer instead of forcing a download
+            if (f==='Parsed CSV' && d) {
               const url = `view.html?file=${encodeURIComponent(d)}`;
               return `<a href="${url}" target="_blank">view</a>`;
             }
-            return d;
+            return d||'';
           }
         }));
 
-        // 4) Initialize DataTable with CSV/Excel buttons
+        // init DataTable
         const table = $('#selected').DataTable({
-          data,
-          columns,
-          dom: 'Bfrtip',
+          data, columns, dom: 'Bfrtip',
           buttons: [
             { extend: 'csvHtml5', title: 'selected_data' },
             { extend: 'excelHtml5', title: 'selected_data' }
@@ -95,24 +88,22 @@
           order: []
         });
 
-        // 5) Wire up the filter: regex OR on selected Types
+        // filter handler
         $filter.on('change', function() {
-          const vals = $(this).val() || [];
-          if (vals.length === 0) {
+          const vals = $(this).val()||[];
+          if (!vals.length) {
             table.column(fields.indexOf('Type')).search('').draw();
           } else {
-            // join with | and use regex search
-            const regex = vals.join('|');
             table.column(fields.indexOf('Type'))
-                 .search(regex, true, false)
+                 .search(vals.join('|'), true, false)
                  .draw();
           }
         });
       },
-
-      error: function(err) {
+      error: function(err, file) {
+        console.error('PapaParse error:', err, 'file:', file);
         $('body').prepend(
-          `<p style="color:red">Error loading CSV: ${err}</p>`
+          `<p style="color:red">Error loading CSV: ${err.message||err}</p>`
         );
       }
     });
