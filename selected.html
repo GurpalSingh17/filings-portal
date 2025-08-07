@@ -1,95 +1,122 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Selected Data</title>
-  <!-- DataTables CSS -->
+  <meta charset="UTF-8">
+  <title>The Stuff We Actually Need</title>
+
+  <!-- DataTables core CSS -->
   <link
     rel="stylesheet"
     href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css"
   />
-  <!-- jQuery -->
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <!-- DataTables JS -->
-  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-  <!-- PapaParse -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <!-- Buttons extension CSS -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css"
+  />
   <style>
     body { font-family: sans-serif; padding: 1rem; }
-    header { margin-bottom: 1rem; }
-    nav a { margin-right: 1rem; }
-    #filters { margin-bottom: .5rem; }
+    nav a { margin-right: .5rem; }
+    label, select { display: block; margin: .5rem 0; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>The Stuff We Actually Need</h1>
-    <nav>
-      <a href="index.html">Home</a>|
-      <a href="selected.html">Selected Data</a>
-    </nav>
-  </header>
+  <nav>
+    <a href="index.html">Home</a> |
+    <a href="selected.html"><strong>Selected Data</strong></a>
+  </nav>
 
-  <div id="filters">
-    <label>Filter by Filings:
-      <select id="filingFilter" multiple size="6" style="min-width:180px;"></select>
-    </label>
-  </div>
+  <h1>The Stuff We Actually Need</h1>
 
-  <table id="selected" class="display" style="width:100%">
+  <label for="typeFilter">Filter by Filings (multi-select):</label>
+  <select id="typeFilter" multiple style="width: 200px; height: 8em;"></select>
+
+  <table id="selected" class="display" width="100%">
     <thead><tr></tr></thead>
     <tbody></tbody>
   </table>
 
-  <script>
-    let table;
+  <!-- jQuery -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <!-- DataTables -->
+  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+  <!-- Buttons extension -->
+  <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+  <!-- PapaParse for CSV -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
-    Papa.parse('filtered_with_parsed.csv', {
+  <script>
+  $(function() {
+    // 1) Parse the CSV
+    Papa.parse('selected_data.csv', {
       download: true,
       header: true,
       complete: function(results) {
         const data = results.data;
         const fields = results.meta.fields;
 
-        // build table columns
+        // 2) Build the multi-select filter from unique Type values
+        const types = Array.from(new Set(data.map(r => r.Type))).sort();
+        const $filter = $('#typeFilter');
+        types.forEach(t => {
+          $filter.append(`<option value="${t}">${t}</option>`);
+        });
+
+        // 3) Set up DataTables columns, using a function for data: to avoid
+        //    the “unknown parameter” DataTables warning on header names
         const columns = fields.map(f => ({
           title: f,
-          data: f,
-          render: (d, _, __, meta) => {
-            // make links clickable
-            if (f === 'Link' || f === 'Source File' || f === 'Parsed CSV') {
+          data: row => row[f],
+          render: (d, _, __) => {
+            if (f === 'Link' || f === 'Source File') {
               return `<a href="${d}" target="_blank">${d}</a>`;
+            }
+            if (f === 'Parsed CSV') {
+              // open our CSV viewer instead of forcing a download
+              const url = `view.html?file=${encodeURIComponent(d)}`;
+              return `<a href="${url}" target="_blank">view</a>`;
             }
             return d;
           }
         }));
 
-        // init DataTable
-        table = $('#selected').DataTable({
-          data: data,
-          columns: columns,
+        // 4) Initialize DataTable with CSV/Excel buttons
+        const table = $('#selected').DataTable({
+          data,
+          columns,
+          dom: 'Bfrtip',
+          buttons: [
+            { extend: 'csvHtml5', title: 'selected_data' },
+            { extend: 'excelHtml5', title: 'selected_data' }
+          ],
           pageLength: 25,
           order: []
         });
 
-        // populate filings multi-select
-        const types = Array.from(new Set(data.map(r => r.Type))).sort();
-        const $sel = $('#filingFilter');
-        $sel.append('<option value="">(all)</option>');
-        types.forEach(t => $sel.append(`<option>${t}</option>`));
-
-        // filter on change
-        $sel.on('change', function() {
+        // 5) Wire up the filter: regex OR on selected Types
+        $filter.on('change', function() {
           const vals = $(this).val() || [];
-          if (vals.includes('') || vals.length === 0) {
+          if (vals.length === 0) {
             table.column(fields.indexOf('Type')).search('').draw();
           } else {
-            const regex = vals.map(v=> `^${v}$`).join('|');
-            table.column(fields.indexOf('Type')).search(regex, true, false).draw();
+            // join with | and use regex search
+            const regex = vals.join('|');
+            table.column(fields.indexOf('Type'))
+                 .search(regex, true, false)
+                 .draw();
           }
         });
+      },
+
+      error: function(err) {
+        $('body').prepend(
+          `<p style="color:red">Error loading CSV: ${err}</p>`
+        );
       }
     });
+  });
   </script>
 </body>
 </html>
