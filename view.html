@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>View Parsed CSV</title>
+  <link rel="stylesheet"
+        href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+  <style> body { font-family: sans-serif; padding: 1rem } </style>
+</head>
+<body>
+  <h1>Parsed CSV Viewer</h1>
+  <table id="viewer" class="display" style="width:100%">
+    <thead><tr></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script>
+    // grab ?file=parsed/.../primary_doc.csv
+    const params = new URLSearchParams(location.search);
+    const file = params.get('file');
+    if (!file) {
+      document.body.innerHTML = `<p style="color:red">No file specified.</p>`;
+      throw new Error('No file');
+    }
+
+    // load & parse
+    Papa.parse(file, {
+      download: true,
+      header: true,
+      complete: function(res) {
+        const data = res.data;
+        const cols = res.meta.fields.map(f => ({
+          title: f,
+          data: row => row[f]
+        }));
+
+        $('#viewer').DataTable({
+          data, columns: cols,
+          pageLength: 25,
+          order: []
+        });
+      },
+      error: function(err) {
+        document.body.innerHTML = `<p style="color:red">Error loading ${file}: ${err}</p>`;
+      }
+    });
+  </script>
+</body>
+</html>
