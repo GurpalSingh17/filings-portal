@@ -5,20 +5,14 @@
   <title>Filings Portal – Selected Data</title>
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
   <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.dataTables.min.css">
-  <style>
-    nav { margin-bottom: 1em; }
-    nav a { margin-right: 1em; text-decoration: none; color: blue; }
-  </style>
 </head>
 <body>
-  <!-- site‐wide navigation -->
   <nav>
     <a href="index.html">Home</a> |
     <a href="selected.html">Selected Data</a>
   </nav>
 
   <h1>Selected Filings Data</h1>
-
   <label for="filings-filter">Filter by Filings:</label>
   <select id="filings-filter" multiple size="6" style="min-width:200px;">
     <option value="">All</option>
@@ -26,7 +20,6 @@
 
   <table id="filings" class="display" style="width:100%"></table>
 
-  <!-- Dependencies -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
@@ -48,23 +41,36 @@
             fields = results.meta.fields,
             seen   = {};
 
-        // Populate multi‐select dropdown
-        data.forEach(function(row) {
-          var v = row['Filings'];
-          if (v && !seen[v]) {
-            seen[v] = true;
-            $('#filings-filter').append(
-              $('<option>').val(v).text(v)
-            );
+        // populate the Filings filter
+        data.forEach(function(r){
+          var f = r['Filings'];
+          if (f && !seen[f]) {
+            seen[f] = true;
+            $('#filings-filter').append($('<option>').val(f).text(f));
           }
         });
 
-        // Initialize DataTable with filtered‐export buttons
+        // build columns, rendering Link & Source File as <a> tags
+        var cols = fields.map(function(name) {
+          var col = {
+            title: name,
+            data: name,
+            defaultContent: ""
+          };
+          if (name === 'Link' || name === 'Source File') {
+            col.render = function(data, type, row) {
+              if (!data) return "";
+              // only render as link in the display view
+              return '<a href="'+data+'" target="_blank" rel="noopener">'+data+'</a>';
+            };
+          }
+          return col;
+        });
+
+        // initialize DataTable
         var table = $('#filings').DataTable({
           data: data,
-          columns: fields.map(function(name) {
-            return { title: name, data: name, defaultContent: "" };
-          }),
+          columns: cols,
           pageLength: 25,
           dom: 'Bfrtip',
           buttons: [
@@ -81,12 +87,12 @@
           ]
         });
 
-        // Apply filter on change
+        // multi‐select filter logic
         $('#filings-filter').on('change', function() {
           var vals = $(this).val() || [],
               idx  = fields.indexOf('Filings'),
               rx;
-          if (!vals.length || (vals.length === 1 && vals[0] === "")) {
+          if (!vals.length || (vals.length===1 && vals[0]==='')) {
             table.column(idx).search('', true, false).draw();
           } else {
             rx = '^(' + vals.map(escapeRegex).join('|') + ')$';
