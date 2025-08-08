@@ -2,112 +2,66 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>The Stuff We Actually Need</title>
-
-  <!-- DataTables core CSS -->
-  <link
-    rel="stylesheet"
-    href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css"
-  />
-  <!-- Buttons extension CSS -->
-  <link
-    rel="stylesheet"
-    href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css"
-  />
+  <title>Selected Data</title>
   <style>
     body { font-family: sans-serif; padding: 1rem; }
-    nav a { margin-right: .5rem; }
-    label, select { display: block; margin: .5rem 0; }
+    nav a { margin-right: 1rem; text-decoration: none; }
+    nav a.active { font-weight: bold; text-decoration: underline; }
+    table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+    th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: left; }
+    th { background: #f5f5f5; }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
 </head>
 <body>
   <nav>
-    <a href="index.html">Home</a> |
-    <a href="selected.html"><strong>Selected Data</strong></a>
+    <a href="index.html">Home</a>
+    <a href="selected.html" class="active">Selected Data</a>
+    <a href="final.html">Final Output</a>
   </nav>
 
-  <h1>The Stuff We Actually Need</h1>
+  <h1>Selected Filings</h1>
 
-  <label for="typeFilter">Filter by Filings (multi-select):</label>
-  <select id="typeFilter" multiple style="width: 200px; height: 8em;"></select>
-
-  <table id="selected" class="display" width="100%">
-    <thead><tr></tr></thead>
-    <tbody></tbody>
+  <table id="data-table">
+    <!-- populated by JS -->
   </table>
 
-  <!-- jQuery -->
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <!-- DataTables -->
-  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-  <!-- Buttons extension -->
-  <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-  <!-- PapaParse for CSV -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-
   <script>
-  $(function() {
-    Papa.parse('filtered_with_parsed.csv', {     // ← explicit relative path
+    // Load your “selected” CSV (replace with your actual filename)
+    Papa.parse('selected_data.csv', {
       download: true,
       header: true,
-      complete: function(results) {
-        const data = results.data;
-        const fields = results.meta.fields;
-
-        // build filter
-        const types = Array.from(new Set(data.map(r => r.Type))).sort();
-        const $filter = $('#typeFilter');
-        types.forEach(t => $filter.append(`<option>${t}</option>`));
-
-        // columns
-        const columns = fields.map(f => ({
-          title: f,
-          data: row => row[f],
-          render: (d, _, __) => {
-            if ((f==='Link' || f==='Source File') && d) {
-              return `<a href="${d}" target="_blank">${d}</a>`;
-            }
-            if (f==='Parsed CSV' && d) {
-              const url = `view.html?file=${encodeURIComponent(d)}`;
-              return `<a href="${url}" target="_blank">view</a>`;
-            }
-            return d||'';
-          }
-        }));
-
-        // init DataTable
-        const table = $('#selected').DataTable({
-          data, columns, dom: 'Bfrtip',
-          buttons: [
-            { extend: 'csvHtml5', title: 'selected_data' },
-            { extend: 'excelHtml5', title: 'selected_data' }
-          ],
-          pageLength: 25,
-          order: []
-        });
-
-        // filter handler
-        $filter.on('change', function() {
-          const vals = $(this).val()||[];
-          if (!vals.length) {
-            table.column(fields.indexOf('Type')).search('').draw();
-          } else {
-            table.column(fields.indexOf('Type'))
-                 .search(vals.join('|'), true, false)
-                 .draw();
-          }
-        });
-      },
-      error: function(err, file) {
-        console.error('PapaParse error:', err, 'file:', file);
-        $('body').prepend(
-          `<p style="color:red">Error loading CSV: ${err.message||err}</p>`
-        );
+      complete: function(res) {
+        renderTable(res.data);
       }
     });
-  });
+
+    function renderTable(data) {
+      const tbl = document.getElementById('data-table');
+      tbl.innerHTML = '';
+      if (!data.length) {
+        tbl.innerHTML = '<tr><td colspan="5">No rows to display.</td></tr>';
+        return;
+      }
+      // header
+      const headerRow = document.createElement('tr');
+      Object.keys(data[0]).forEach(k => {
+        const th = document.createElement('th');
+        th.textContent = k;
+        headerRow.appendChild(th);
+      });
+      tbl.appendChild(headerRow);
+      // rows
+      data.forEach(row => {
+        const tr = document.createElement('tr');
+        Object.values(row).forEach(v => {
+          const td = document.createElement('td');
+          td.textContent = v;
+          tr.appendChild(td);
+        });
+        tbl.appendChild(tr);
+      });
+    }
   </script>
 </body>
 </html>
