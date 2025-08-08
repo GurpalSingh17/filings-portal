@@ -5,48 +5,51 @@
   <title>Final Output for XML</title>
   <style>
     body { font-family: sans-serif; padding: 1rem; }
+    nav a { margin-right: 1rem; text-decoration: none; }
+    nav a.active { font-weight: bold; text-decoration: underline; }
     table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
     th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: left; }
     th { background: #f5f5f5; }
-    nav a { margin-right: 1rem; }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
 </head>
 <body>
   <nav>
     <a href="index.html">Home</a>
     <a href="selected.html">Selected Data</a>
-    <a href="final.html">Final Output</a>
+    <a href="final.html" class="active">Final Output</a>
   </nav>
 
   <h1>Final Output for XML</h1>
+
   <table id="data-table">
-    <!-- will be populated by JS -->
+    <!-- populated by JS -->
   </table>
 
-  <!-- PapaParse for CSV parsing -->
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
   <script>
     Papa.parse('final_output_for_xml.csv', {
       download: true,
       header: true,
       complete: function(results) {
         const data = results.data;
-        if (!data.length) {
-          document.getElementById('data-table').innerText = 'No data to display.';
+        const tbl = document.getElementById('data-table');
+        tbl.innerHTML = '';
+
+        if (!data.length || !data[0] || Object.keys(data[0]).length === 0) {
+          tbl.innerHTML = '<tr><td>No data to display.</td></tr>';
           return;
         }
-        const table = document.getElementById('data-table');
 
-        // build header row
+        // header
         const headerRow = document.createElement('tr');
         Object.keys(data[0]).forEach(key => {
           const th = document.createElement('th');
           th.textContent = key;
           headerRow.appendChild(th);
         });
-        table.appendChild(headerRow);
+        tbl.appendChild(headerRow);
 
-        // build data rows
+        // rows
         data.forEach(row => {
           const tr = document.createElement('tr');
           Object.values(row).forEach(val => {
@@ -54,7 +57,7 @@
             td.textContent = val;
             tr.appendChild(td);
           });
-          table.appendChild(tr);
+          tbl.appendChild(tr);
         });
       },
       error: function(err) {
