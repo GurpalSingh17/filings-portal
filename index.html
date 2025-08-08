@@ -1,55 +1,79 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Filings Portal</title>
-  <!-- DataTables CSS -->
-  <link
-    rel="stylesheet"
-    href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css"
-  />
-  <!-- jQuery -->
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <!-- DataTables JS -->
-  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-  <!-- PapaParse -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <style>
     body { font-family: sans-serif; padding: 1rem; }
-    header { margin-bottom: 1rem; }
-    nav a { margin-right: 1rem; }
+    nav a { margin-right: 1rem; text-decoration: none; }
+    nav a.active { font-weight: bold; text-decoration: underline; }
+    table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+    th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: left; }
+    th { background: #f5f5f5; }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
 </head>
 <body>
-  <header>
-    <h1>Filing Links</h1>
-    <nav>
-      <a href="index.html">Home</a>|
-      <a href="selected.html">Selected Data</a>
-    </nav>
-  </header>
+  <nav>
+    <a href="index.html" class="active">Home</a>
+    <a href="selected.html">Selected Data</a>
+    <a href="final.html">Final Output</a>
+  </nav>
 
-  <table id="filings" class="display" style="width:100%">
-    <thead><tr></tr></thead>
-    <tbody></tbody>
+  <h1>All Filings</h1>
+  <input type="text" id="filter-input" placeholder="Type filing type to filter…" />
+
+  <table id="data-table">
+    <!-- populated by JS -->
   </table>
 
   <script>
-    // 1) load CSV, then build DataTable
-    Papa.parse('NEW_filing_links.csv', {
+    // 1) Load the CSV of all filings (replace with your actual CSV filename)
+    Papa.parse('filtered_filings.csv', {
       download: true,
       header: true,
-      complete: function(results) {
-        const data = results.data;
-        const columns = results.meta.fields.map(f => ({ title: f, data: f }));
-        $('#filings').DataTable({
-          data: data,
-          columns: columns,
-          pageLength: 25,
-          order: []
-        });
+      complete: function(res) {
+        window.ALL_DATA = res.data;
+        renderTable(res.data);
       }
     });
+
+    // 2) Filter as the user types
+    document.getElementById('filter-input').addEventListener('input', function(e) {
+      const term = e.target.value.toLowerCase();
+      const filtered = window.ALL_DATA.filter(r =>
+        r.Filings && r.Filings.toLowerCase().includes(term)
+      );
+      renderTable(filtered);
+    });
+
+    // 3) Table rendering function
+    function renderTable(data) {
+      const tbl = document.getElementById('data-table');
+      tbl.innerHTML = '';
+      if (!data.length) {
+        tbl.innerHTML = '<tr><td colspan="5">No rows to display.</td></tr>';
+        return;
+      }
+      // header
+      const headerRow = document.createElement('tr');
+      Object.keys(data[0]).forEach(k => {
+        const th = document.createElement('th');
+        th.textContent = k;
+        headerRow.appendChild(th);
+      });
+      tbl.appendChild(headerRow);
+      // rows
+      data.forEach(row => {
+        const tr = document.createElement('tr');
+        Object.values(row).forEach(v => {
+          const td = document.createElement('td');
+          td.textContent = v;
+          tr.appendChild(td);
+        });
+        tbl.appendChild(tr);
+      });
+    }
   </script>
 </body>
 </html>
