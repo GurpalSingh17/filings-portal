@@ -20,7 +20,6 @@
     .badge { font-size: .8rem; border: 1px solid #ddd; padding: .2rem .5rem; border-radius: .35rem; background: #fafafa; text-decoration: none; }
     button { padding: .45rem .6rem; border: 1px solid #ccc; background: #f7f7f7; border-radius: .5rem; cursor: pointer; }
   </style>
-  <!-- CSV & Excel parsers (safe to use on GitHub Pages) -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -44,15 +43,13 @@
       <tbody></tbody>
     </table>
 
-    <p class="muted" style="margin-top:1rem;">
-      Tip: click a column header to sort; type to filter.
-    </p>
+    <p class="muted" style="margin-top:1rem;">Tip: click a column header to sort; type to filter.</p>
   </div>
 
   <script>
-    // ---- change this to match what you uploaded in /data ----
-    const FILE_PATH = 'data/Blackstone and CIKs.csv'; // or 'data/Blackstone and CIKs.xlsx'
-    // --------------------------------------------------------
+    // ---- CSV/XLSX is at the REPO ROOT, not /data ----
+    const FILE_PATH = 'Blackstone and CIKs.csv';
+    // --------------------------------------------------
 
     const url = encodeURI(FILE_PATH);
     const ext = url.split('.').pop().toLowerCase();
@@ -97,7 +94,7 @@
       return data.map(r => {
         const entity = String(r.Entity ?? r.entity ?? r['Entity Name'] ?? '').trim();
         const cikRaw = String(r.CIK ?? r.cik ?? '').trim();
-        const cik = cikRaw.replace(/\D/g, ''); // keep digits only
+        const cik = cikRaw.replace(/\D/g, '');
         return { Entity: entity, CIK: cik };
       }).filter(r => r.Entity || r.CIK);
     }
@@ -140,20 +137,12 @@
       });
     }
 
-    function copy(text) {
-      navigator.clipboard.writeText(text).then(() => {
-        // optional: brief visual feedback
-      });
-    }
-
+    function copy(text) { navigator.clipboard.writeText(text); }
     function escapeHtml(s) {
       return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
     }
 
-    // search
     $q.addEventListener('input', render);
-
-    // sort
     document.querySelectorAll('th[data-key]').forEach(th => {
       th.addEventListener('click', () => {
         const key = th.dataset.key;
