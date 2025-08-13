@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Compare CIKs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; padding: 1rem; }
+    h1 { margin: 0 0 .75rem 0; }
+    .row { display:flex; gap:1rem; align-items:center; flex-wrap:wrap; margin:.5rem 0 1rem; }
+    .muted { color:#666; }
+    table { border-collapse: collapse; width: 100%; margin-top:1rem; }
+    th, td { border: 1px solid #ccc; padding: .5rem; text-align: left; }
+    th { background: #f5f5f5; }
+    code { background:#f7f7f7; padding:.1rem .3rem; border:1px solid #eee; border-radius:.25rem; }
+    .summary { padding:.75rem; border:1px solid #eee; background:#fafafa; border-radius:.5rem; }
+    .error { color:#b00; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+</head>
+<body>
+  <h1>Compare CIKs</h1>
+  <p class="muted">This compares your uploaded CSV to <code>Blackstone and CIKs.csv</code> (in the repo root) by CIK number and reports the number of <strong>unique matches</strong>.</p>
+
+  <div class="row">
+    <label><strong>Upload the other CSV:</strong> <input id="file" type="file" accept=".csv" /></label>
+    <span id="status" class="muted"></span>
+  </div>
+
+  <div id="summary" class="summary" style="display:none"></div>
+
+  <table id="matches" style="display:none">
+    <thead>
+      <tr>
+        <th>CIK</th>
+        <th>Blackstone Entity/Entities</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const BLACKSTONE_FILE = encodeURI('Blackstone and CIKs.csv'); // repo root
+
+    // helpers
+    const normCIK = v => String(v ?? '').replace(/\D/g, '').replace(/^0+/, ''); // digits only, drop leading zeros for robust match
+    const findCikKey = obj =>
+      Object.keys(obj).find(k => k.toLowerCase().trim() === 'cik' || k.toLowerCase().includes('cik'));
+
+    const statusEl = document.getElementById('status');
+    const summaryEl = document.getElementById('summary');
+    const table = document.getElementById('matches');
+    const tbody = table.querySelector('tbody');
+
+    // load Blackstone CSV once
+    let blackstoneMap = new Map(); // CIK(normalised) -> Set(Entities)
+    let blackstoneSet = new Set();
+
+    fetch(BLACKSTONE_FILE)
+      .then(r => {
+        if (!r.ok) throw new Error('Could not load "Blackstone and CIKs.csv"');
+        return r.text();
+      })
+      .then(text => {
+        const { data } = Papa.parse(text, { header: true, skipEmptyLines: true });
+        if (!data.length) throw new Error('Blackstone CSV is empty');
+        const entityKey = Object.keys(data[0]).find(k => k.toLowerCase().includes('entity')) || 'Entity';
+        const cikKey = findCikKey(data[0]) || 'CIK';
+
+        data.forEach(row => {
+          const cik = normCIK(row[cikKey]);
+          const entity = String(row[entityKey] ?? '').trim();
+          if (!cik) return;
+          blackstoneSet.add(cik);
+          if (!blackstoneMap.has(cik)) blackstoneMap.set(cik, new Set());
+          if (entity) blackstoneMap.get(cik).add(entity);
+        });
+        statusEl.textContent = `(Loaded Blackstone CIKs: ${blackstoneSet.size} unique)`;
+      })
+      .catch(err => {
+        statusEl.innerHTML = `<span class="error">${err.message}</span>`;
+      });
+
+    // handle upload
+    document.getElementById('file').addEventListener('change', e => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: results => {
+          const rows = results.data || [];
+          if (!rows.length) {
+            summaryEl.style.display = 'block';
+            summaryEl.innerHTML = `<span class="error">Your uploaded CSV has no rows.</span>`;
+            table.style.display = 'none';
+            return;
+          }
+
+          const otherCikKey = findCikKey(rows[0]);
+          if (!otherCikKey) {
+            summaryEl.style.display = 'block';
+            summaryEl.innerHTML = `<span class="error">Could not find a CIK column in your file. Please ensure a header named "CIK".</span>`;
+            table.style.display = 'none';
+            return;
+          }
+
+          const otherSet = new Set();
+          rows.forEach(r => {
+            const c = normCIK(r[otherCikKey]);
+            if (c) otherSet.add(c);
+          });
+
+          // intersection
+          const matches = [];
+          otherSet.forEach(c => {
+            if (blackstoneSet.has(c)) matches.push(c);
+          });
+
+          // summary
+          summaryEl.style.display = 'block';
+          summaryEl.innerHTML = `
+            <div><strong>Blackstone unique CIKs:</strong> ${blackstoneSet.size}</div>
+            <div><strong>Your file unique CIKs:</strong> ${otherSet.size}</div>
+            <div><strong>Unique matches (by CIK):</strong> ${matches.length}</div>
+          `;
+
+          // table of matches with entity names
+          tbody.innerHTML = matches
+            .sort((a,b)=>a.localeCompare(b))
+            .map(cik => {
+              const entities = Array.from(blackstoneMap.get(cik) || []);
+              return `<tr>
+                <td>${cik}</td>
+                <td>${entities.join('; ') || ''}</td>
+              </tr>`;
+            }).join('');
+
+          table.style.display = matches.length ? 'table' : 'none';
+        },
+        error: err => {
+          summaryEl.style.display = 'block';
+          summaryEl.innerHTML = `<span class="error">Failed to parse your CSV: ${err?.message || err}</span>`;
+          table.style.display = 'none';
+        }
+      });
+    });
+  </script>
+</body>
+</html>
