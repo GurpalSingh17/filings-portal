@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Blackstone & CIKs</title>
+  <style>
+    :root { --gap: 1rem; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 2rem; }
+    .wrap { max-width: 1000px; margin: 0 auto; }
+    h1 { margin: 0 0 .5rem 0; }
+    .bar { display: flex; gap: var(--gap); flex-wrap: wrap; align-items: center; margin: 1rem 0; }
+    input[type="search"] { padding: .6rem .8rem; border: 1px solid #ccc; border-radius: .5rem; min-width: 260px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: .6rem .5rem; border-bottom: 1px solid #eee; text-align: left; }
+    th { cursor: pointer; user-select: none; position: relative; }
+    th .arrow { position: absolute; right: .5rem; opacity: .6; }
+    .muted { color: #666; font-size: .9rem; }
+    .right { text-align: right; }
+    .badge { font-size: .8rem; border: 1px solid #ddd; padding: .2rem .5rem; border-radius: .35rem; background: #fafafa; text-decoration: none; }
+    button { padding: .45rem .6rem; border: 1px solid #ccc; background: #f7f7f7; border-radius: .5rem; cursor: pointer; }
+  </style>
+  <!-- CSV & Excel parsers (safe to use on GitHub Pages) -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Blackstone &amp; CIKs</h1>
+    <div class="bar">
+      <input id="q" type="search" placeholder="Search entity or CIK…" />
+      <span id="count" class="muted"></span>
+      <a id="download" class="badge" href="#" download>Download source</a>
+    </div>
+
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th data-key="Entity">Entity <span class="arrow"></span></th>
+          <th data-key="CIK">CIK <span class="arrow"></span></th>
+          <th class="right">Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <p class="muted" style="margin-top:1rem;">
+      Tip: click a column header to sort; type to filter.
+    </p>
+  </div>
+
+  <script>
+    // ---- change this to match what you uploaded in /data ----
+    const FILE_PATH = 'data/Blackstone and CIKs.csv'; // or 'data/Blackstone and CIKs.xlsx'
+    // --------------------------------------------------------
+
+    const url = encodeURI(FILE_PATH);
+    const ext = url.split('.').pop().toLowerCase();
+    const $q = document.getElementById('q');
+    const $tbody = document.querySelector('#tbl tbody');
+    const $count = document.getElementById('count');
+    const $download = document.getElementById('download');
+
+    let rows = [];
+    let sortKey = 'Entity';
+    let sortDir = 1; // 1 asc, -1 desc
+
+    (async function init(){
+      $download.href = url;
+      try {
+        rows = await loadData(url, ext);
+        rows = normalise(rows);
+        render();
+      } catch (e) {
+        console.error(e);
+        $tbody.innerHTML = `<tr><td colspan="3" style="color:#b00">Failed to load: ${e.message}</td></tr>`;
+      }
+    })();
+
+    async function loadData(url, ext) {
+      if (ext === 'csv') {
+        const text = await (await fetch(url)).text();
+        const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+        return parsed.data;
+      } else if (ext === 'xlsx' || ext === 'xls') {
+        const ab = await (await fetch(url)).arrayBuffer();
+        const wb = XLSX.read(ab);
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        return XLSX.utils.sheet_to_json(ws, { defval: '' });
+      } else if (ext === 'json') {
+        return await (await fetch(url)).json();
+      }
+      throw new Error('Unsupported file type. Use .csv, .xlsx, or .json');
+    }
+
+    function normalise(data) {
+      return data.map(r => {
+        const entity = String(r.Entity ?? r.entity ?? r['Entity Name'] ?? '').trim();
+        const cikRaw = String(r.CIK ?? r.cik ?? '').trim();
+        const cik = cikRaw.replace(/\D/g, ''); // keep digits only
+        return { Entity: entity, CIK: cik };
+      }).filter(r => r.Entity || r.CIK);
+    }
+
+    function render() {
+      const q = $q.value.trim().toLowerCase();
+      let out = rows.filter(r =>
+        r.Entity.toLowerCase().includes(q) || String(r.CIK).includes(q)
+      );
+
+      out.sort((a, b) => {
+        const A = (a[sortKey] ?? '').toString().toLowerCase();
+        const B = (b[sortKey] ?? '').toString().toLowerCase();
+        if (A < B) return -1 * sortDir;
+        if (A > B) return  1 * sortDir;
+        return 0;
+      });
+
+      $tbody.innerHTML = out.map(r => {
+        const cik = r.CIK || '';
+        const edgar = `https://www.sec.gov/edgar/browse/?CIK=${encodeURIComponent(cik)}&owner=exclude`;
+        return `<tr>
+          <td>${escapeHtml(r.Entity)}</td>
+          <td>${cik}</td>
+          <td class="right">
+            <a class="badge" target="_blank" rel="noopener" href="${edgar}">Open on EDGAR</a>
+            <button onclick="copy('${cik}')">Copy CIK</button>
+          </td>
+        </tr>`;
+      }).join('');
+
+      $count.textContent = `${out.length} of ${rows.length} shown`;
+      paintSortArrows();
+    }
+
+    function paintSortArrows() {
+      document.querySelectorAll('th[data-key]').forEach(th => {
+        th.querySelector('.arrow').textContent =
+          th.dataset.key === sortKey ? (sortDir === 1 ? '▲' : '▼') : '';
+      });
+    }
+
+    function copy(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        // optional: brief visual feedback
+      });
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+
+    // search
+    $q.addEventListener('input', render);
+
+    // sort
+    document.querySelectorAll('th[data-key]').forEach(th => {
+      th.addEventListener('click', () => {
+        const key = th.dataset.key;
+        if (sortKey === key) sortDir *= -1; else { sortKey = key; sortDir = 1; }
+        render();
+      });
+    });
+  </script>
+</body>
+</html>
